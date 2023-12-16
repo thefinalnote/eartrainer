@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Perfect Pitch Trainer</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+  <!--<script
+    type="text/javascript"
+    src="/js/lib/dummy.js"
+    
+  ></script>
+
+    <link rel="stylesheet" type="text/css" href="/css/result-light.css">-->
+
+
+  <style id="compiled-css" type="text/css">
+    #trainer {
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+.noteButton, .refNoteButton {
+    margin: 5px;
+    padding: 10px;
+    font-size: 16px;
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    border: 2px solid transparent; /* Transparent border to maintain size */
+}
+
+.noteButton.correct, .noteButton.incorrect {
+    border-color: inherit;
+}
+
+#playNote, #replayNote {
+    padding: 10px 20px;
+    font-size: 20px;
+    margin-bottom: 20px;
+}
+
+#feedback { 
+    font-size: 20px;
+    height: 20px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    padding: 5px;
+    vertical-align:top
+}
+
+/* Additional styles for correct and incorrect guesses */
+.noteButton.correct {
+    background-color: green;
+}
+
+.noteButton.incorrect {
+    background-color: orange;
+}
+      
+.noteButton:disabled {
+    opacity: 0.5; /* 50% transparency */
+}
+      
+.toggle-container {
+    display: flex;
+    align-items: center; /* Aligns items vertically in the center */
+    justify-content: center; /* Center horizontally */
+    margin-bottom: 10px; /* Spacing below the container */
+}
+
+.toggle-container button {
+    margin-left: 10px; /* Spacing between label and toggle */
+    padding: 10px;
+    font-size: 16px;
+    background-color: #ddd; /* Grey color for OFF state */
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    position: relative;
+    outline: none;
+    transition: background-color 0.3s;
+    width: 60px; /* Fixed width for toggle */
+    height:24px;
+    text-align: center;
+}
+
+.toggle-container button::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+    transform: translateX(0); /* Move the toggle to the left for OFF state */
+}
+
+.toggle-container button.active{
+    background-color: #4CAF50; /* Default active background */
+}
+
+.toggle-container button.active::after {
+    transform: translateX(36px); /* Start in the active position */
+}
+      
+.octave-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.octave-container div {
+    margin: 0 10px; /* Add some space between the two columns */
+}
+
+.octaveRefNoteButton.refNoteButton
+{
+    font-size: 15px !important;
+    padding:3px;
+    margin:2px;
+}
+
+    /* EOS */
+  </style>
+
+  <script id="insert"></script>
+
+</head>
+<body>
+    <!DOCTYPE html>
+<html>
+<head>
+    <title>Perfect Pitch Trainer v2</title>
+    <!--<link rel="stylesheet" type="text/css" href="style.css">-->
+</head>
+<body>
+
+<div id="trainer">
+    <h1>Perfect Pitch Trainer</h1>
+    <div class="toggle-container">
+        <span>Include Sharps:</span>
+        <button id="toggleSharps"></button>
+    </div>
+    <div class="toggle-container">
+        <span>Include Microtones:</span>
+        <button id="toggleMicro"></button>
+    </div>
+        <div class="toggle-container">
+        <span>Include +/- Octaves:</span>
+        <button id="toggleExtendedOctaves" class="active"></button>
+    </div>
+
+    <p id="stats">Accuracy: 0% (0/0)</p>
+    <p>Guess the note being played:</p>
+    <p id="feedback"></p>
+    <button id="playNote">Play Random Note</button>
+    <button id="replayNote" disabled>Replay Note</button>
+    <div id="guessNotes"></div>
+    <p>Reference Notes:</p>
+    <div id="referenceNotes">
+    </div>
+    <div class="octave-container">
+        <div id="lowerOctaveNotes"></div><div id="upperOctaveNotes"></div>
+    </div>
+</div>
+
+<!--<script src="script.js"></script>-->
+</body>
+</html>
+
+
+    <script type="text/javascript">//<![CDATA[
+
+
+let audioContext;
+let currentNote = '';
+let frequency = null;
+let isNotePlayedOnce = false;
+let totalGuesses = 0;
+let correctGuesses = 0;
+let hasGuessed = false;
+let includeSharps = false;
+let includeMicrotones = false;
+let includeExtendedOctaves = true;
+let lastNote = null;
+
+if (window.AudioContext) {
+    audioContext = new AudioContext();
+} else if (window.webkitAudioContext) {
+    audioContext = new webkitAudioContext();
+} else {
+    console.error('Web Audio API is not supported in this browser');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    let notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    addSharpClassToButtons();
+    updateToggleState('toggleSharps', includeSharps);
+    updateToggleState('microtoneToggle', includeMicrotones);
+    updateToggleState('toggleExtendedOctaves', includeExtendedOctaves);
+    updateNoteButtons();
+    setNoteButtonsEnabled(isNotePlayedOnce);
+    updateReferenceButtons(); // Initial call to populate reference note buttons
+    updateOctaveReferenceButtons(); // Populate octave-adjusted reference note buttons
+
+    const playRandomNote = function() {
+        let newNote;
+        notes = getNoteSet(includeSharps);
+        do {
+            newNote = notes[Math.floor(Math.random() * notes.length)];
+        } while (newNote === lastNote);
+        currentNote = newNote;
+        frequency = includeExtendedOctaves ? getFrequencyWithOctaveVariation(currentNote):getFrequency(currentNote) ;
+        playSound(frequency);
+        setNoteButtonsEnabled(true);
+        document.getElementById('feedback').textContent = '';
+        document.getElementById('replayNote').disabled = false;
+        resetButtonColors();
+        isNotePlayedOnce = true;
+        hasGuessed = false;
+        setNoteButtonsEnabled(isNotePlayedOnce);
+    };
+
+    document.getElementById('playNote').addEventListener('click', playRandomNote);
+
+    document.getElementById('replayNote').addEventListener('click', function() {
+        if (frequency) {
+            playSound(frequency);
+        }
+    });
+    
+    document.getElementById('toggleSharps').addEventListener('click', function() {
+        includeSharps = !includeSharps;
+        notes = getNoteSet(includeSharps);
+        updateToggleState('toggleSharps', includeSharps);
+        //this.textContent = includeSharps ? 'ON' : 'OFF';
+        //updateSharpButtons(includeSharps);
+        updateNoteButtons();
+        updateReferenceButtons();
+        updateOctaveReferenceButtons();
+    });
+    document.getElementById('toggleMicro').addEventListener('click', function() {
+        includeMicrotones = !includeMicrotones;
+        updateToggleState('toggleMicro', includeMicrotones);
+        updateNoteButtons();
+        updateReferenceButtons();
+        updateOctaveReferenceButtons();
+        notes = getNoteSet(includeSharps, includeMicrotones);
+    });
+    document.getElementById('toggleExtendedOctaves').addEventListener('click', function() {
+        includeExtendedOctaves = !includeExtendedOctaves;
+        updateNoteButtons();
+        updateReferenceButtons();
+        updateOctaveReferenceButtons();
+        updateToggleState('toggleExtendedOctaves', includeExtendedOctaves);
+    });
+    
+    function updateToggleState(toggleId, isActive) {
+    const toggleElement = document.getElementById(toggleId);
+    if (toggleElement) {
+            toggleElement.classList.toggle('active', isActive);
+            //toggleElement.textContent = `Include Sharps: ${isActive ? 'ON' : 'OFF'}`;
+    
+    }
+}
+    
+    function updateNoteButtons() {
+        let notes = getNoteSet(includeSharps, includeMicrotones);
+        let buttonsHtml = notes.map(note => `<button class="noteButton ${note.includes('↑') ? 'microtone' : ''}" data-note="${note}">${note}</button>`).join('');
+        document.getElementById('guessNotes').innerHTML = buttonsHtml;
+
+        document.querySelectorAll('#guessNotes .noteButton').forEach(button => {
+            button.addEventListener('click', function() {
+                if (!hasGuessed) {
+                    totalGuesses++;
+                }
+                if (this.getAttribute('data-note') === currentNote) {
+                    this.classList.add('correct');
+                    setNoteButtonsEnabled(false);
+                    if (!hasGuessed) correctGuesses++;
+                    document.getElementById('feedback').textContent = 'Correct!';
+                } else {
+                    this.classList.add('incorrect');
+                    document.getElementById('feedback').textContent = 'Incorrect, try again.';
+                }
+                hasGuessed = true;
+                updateStats();
+            });
+        });    
+        setNoteButtonsEnabled(isNotePlayedOnce);
+    }
+    function setNoteButtonsEnabled(enabled) {
+        document.querySelectorAll('.noteButton').forEach(button => {
+            button.disabled = !enabled;
+        });
+    }
+    function updateReferenceButtons() {
+        let notes = getNoteSet(true, includeMicrotones); // Always include sharps in reference
+        let buttonsHtml = notes.map(note => `<button class="refNoteButton ${note.includes('↑') ? 'microtone' : ''}" data-note="${note}">${note}</button>`).join('');
+        document.getElementById('referenceNotes').innerHTML = buttonsHtml;
+        
+        document.querySelectorAll('#referenceNotes .refNoteButton').forEach(button => {
+            button.addEventListener('click', function() {
+                playSound(getFrequency(this.getAttribute('data-note')));
+            });
+        });
+    }
+
+
+
+    /*document.querySelectorAll('.noteButton').forEach(button => {
+        button.addEventListener('click', function() {
+            if (!hasGuessed) {
+                totalGuesses++;
+                hasGuessed = true;
+            }
+            if (this.textContent === currentNote) {
+                this.classList.add('correct');
+                if (!hasGuessed) correctGuesses++;
+                document.getElementById('feedback').textContent = 'Correct!';
+            } else {
+                this.classList.add('incorrect');
+                document.getElementById('feedback').textContent = 'Incorrect, try again.';
+            }
+            updateStats();
+        });
+    });
+
+    document.querySelectorAll('.refNoteButton').forEach(button => {
+        button.addEventListener('click', function() {
+            playSound(getFrequency(this.textContent));
+        });
+    });*/
+
+    document.addEventListener('keydown', function(e) {
+        if (e.keyCode === 32) { // Space bar code
+            e.preventDefault(); // Prevent the default action (scrolling)
+            if (!isNotePlayedOnce) {
+                playRandomNote();
+            } else {
+                if (frequency) {
+                    playSound(frequency);
+                }
+            }
+        } else if (e.keyCode === 39) { // Right arrow key code
+            playRandomNote();
+        }
+    });
+});
+
+function resetButtonColors() {
+    document.querySelectorAll('.noteButton').forEach(button => {
+        button.classList.remove('correct', 'incorrect');
+    });
+}
+
+
+function getNoteSet(includeSharps, includeMicrotones) {
+    let baseNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    if (includeSharps) {
+        //baseNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        baseNotes = ['C', 'D\u266D', 'D', 'E\u266D', 'E', 'F', 'G\u266D', 'G', 'A\u266D', 'A', 'B\u266D', 'B'];
+    }
+
+    if (includeMicrotones) {
+        baseNotes = baseNotes.flatMap(note => {
+            if (includeSharps && note.includes('\u266D')) {
+                // For flat notes, the microtone above is the next natural note with a down arrow
+                return [note, getNextNatural(note) + '↓'];
+            } else {
+                // For non-flat notes, use down arrow for microtone below and up arrow for microtone above
+                return [note, note + '↑'];
+            }
+        });
+    }
+
+    return baseNotes;
+}
+
+function getNextNatural(note) {
+    // Get the next natural note after a flat note
+    const naturalNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    if (note.includes('\u266D'))
+    {
+        let naturalNote = note.replace('\u266D', ''); // Remove flat symbol
+        return naturalNote;
+    }else{
+        let naturalNote = note.charAt(0);
+        let index = naturalNotes.indexOf(naturalNote);
+        return naturalNotes[(index + 1) % naturalNotes.length];
+    }
+    
+}
+
+function getFrequency(note) {
+    // Standard frequencies for natural notes
+    const frequencies = {
+        'C': 261.63, 'C#': 277.18, 'Db': 277.18, 'D\u266D': 277.18,
+        'D': 293.66, 'D#': 311.13, 'Eb': 311.13, 'E\u266D': 311.13,
+        'E': 329.63, 'F': 349.23, 'F#': 369.99, 'Gb': 369.99, 'G\u266D': 369.99,
+        'G': 392.00, 'G#': 415.30, 'Ab': 415.30, 'A\u266D': 415.30,
+        'A': 440.00, 'A#': 466.16, 'Bb': 466.16, 'B\u266D': 466.16,
+        'B': 493.88
+    };
+
+    if (note.includes('↑')) {
+        let baseNote = note.replace('↑', '');
+        return calculateQuarterToneAbove(frequencies[baseNote]);
+    } else if (note.includes('↓')) {
+        let baseNote = note.replace('↓', '');
+        return calculateQuarterToneBelow(frequencies[baseNote]);
+    }
+
+    return frequencies[note] || null;
+}
+
+ function calculateQuarterToneAbove(baseFrequency) {
+    // Assume the frequency of the note a semitone above is approximately a factor of the twelfth root of 2 higher
+    let semitoneAboveFrequency = baseFrequency * Math.pow(2, 1/12);
+
+    // Calculate the quarter tone as the geometric mean of the base note and the note a semitone above
+    return Math.round(Math.sqrt(baseFrequency * semitoneAboveFrequency));
+}
+function calculateQuarterToneBelow(baseFrequency) {
+    // Assume the frequency of the note a semitone below is approximately a factor of the twelfth root of 2 lower
+    let semitoneBelowFrequency = baseFrequency / Math.pow(2, 1/12);
+
+    // Calculate the quarter tone as the geometric mean of the base note and the note a semitone below
+    return Math.round(Math.sqrt(baseFrequency * semitoneBelowFrequency));
+}
+function getNextNote(note, includeSharps) {
+    const allNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C'];
+    let index = allNotes.indexOf(note);
+    if (index === -1 || index === allNotes.length - 1) return 'C'; // Wrap around
+    return includeSharps ? allNotes[index + 1] : allNotes[(index + 2) % allNotes.length];
+}
+        
+function updateSharpButtons(include) {
+document.querySelectorAll('.noteButton.sharp').forEach(button => {
+    button.disabled = !include;
+});
+}
+
+function addSharpClassToButtons() {
+document.querySelectorAll('.noteButton').forEach(button => {
+if (button.textContent.length > 1) {
+    button.classList.add('sharp');
+}
+});
+}
+
+
+function getFrequencyWithOctaveVariation(note) {
+    let baseFrequency = getFrequency(note);
+    if (!baseFrequency) return null;
+
+    let octaveChange = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
+    return baseFrequency * Math.pow(2, octaveChange);
+}
+
+/*function playSound1(frequency) {
+    if (!audioContext) {
+        console.log("AudioContext not initialized");
+        return;
+    }
+
+    const oscillator = audioContext.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+    const gainNode = audioContext.createGain();
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 1);
+}*/
+function playSound(frequency) {
+    unlock();
+    if (!audioContext) {
+        console.log("AudioContext not initialized");
+        return;
+    }
+
+    const attackTime = 0.02; // Time in seconds to ramp up the sound
+    const releaseTime = 0.05; // Time in seconds to ramp down the sound
+    let duration = 1; // Total duration of the note
+
+    const oscillator = audioContext.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.type = 'square'; // Square wave for a richer tone than sine
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+    
+    const middleCFrequency = 261.63; // Frequency of middle C (C4)
+    let volume = 0.1; // Default volume
+
+    // Adjust volume based on octave
+    if (frequency < middleCFrequency) {
+        // Lower octaves have higher volume
+        volume = 0.03; // Increase volume for lower octaves
+        duration = 2;
+    }else if (frequency > middleCFrequency * 2) {
+        // Higher octaves (above C5) have lower volume
+        volume = 0.02; // Decrease volume for higher octaves
+    }else if (frequency >= middleCFrequency) {
+        // Higher octaves (above C5) have lower volume
+        volume = 0.02; // Decrease volume for higher octaves
+    }
+    
+    const gainNode = audioContext.createGain();
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + attackTime); // Ramp up (attack)
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start();
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration - releaseTime); // Ramp down (release)
+    oscillator.stop(audioContext.currentTime + duration);
+}
+        
+/*function playSound(frequency) {
+    if (!audioContext) {
+        console.log("AudioContext not initialized");
+        return;
+    }
+
+    // Create an oscillator
+    const oscillator = audioContext.createOscillator();
+    oscillator.type = 'square'; // Square wave for a richer tone than sine
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+    // Create a gain node for ADSR envelope
+    const gainNode = audioContext.createGain();
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+
+    // Attack
+    gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.01);
+
+    // Decay and Sustain
+    gainNode.gain.linearRampToValueAtTime(0.7, audioContext.currentTime + 0.1);
+    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime + 1);
+
+    // Release
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.5);
+
+    // Connect and play
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 1.5);
+}*/
+
+
+function updateOctaveReferenceButtons() {
+    let notes = getNoteSet(true, includeMicrotones); // Include all notes for reference
+    let lowerOctaveHtml = notes.map(note => `<button class="octaveRefNoteButton refNoteButton" data-note="${note}" data-octave="lower">${note}</button>`).join('');
+    let upperOctaveHtml = notes.map(note => `<button class="octaveRefNoteButton refNoteButton" data-note="${note}" data-octave="upper">${note}</button>`).join('');
+
+    document.getElementById('lowerOctaveNotes').innerHTML = lowerOctaveHtml;
+    document.getElementById('upperOctaveNotes').innerHTML = upperOctaveHtml;
+
+    document.querySelectorAll('.octaveRefNoteButton').forEach(button => {
+        button.addEventListener('click', function() {
+            let note = this.getAttribute('data-note');
+            let octave = this.getAttribute('data-octave');
+            let frequency = getFrequencyWithOctaveAdjustment(note, octave);
+            playSound(frequency);
+        });
+    });
+}
+
+function getFrequencyWithOctaveAdjustment(note, octave) {
+    let baseFrequency = getFrequency(note);
+    if (!baseFrequency) return null;
+
+    if (octave === 'lower') {
+        return baseFrequency / 2; // One octave lower
+    } else if (octave === 'upper') {
+        return baseFrequency * 2; // One octave higher
+    }
+
+    return baseFrequency;
+}
+        
+
+function updateStats() {
+    const accuracy = totalGuesses > 0 ? (correctGuesses / totalGuesses * 100).toFixed(2) : 0;
+    document.getElementById('stats').textContent = `Accuracy: ${accuracy}% (${correctGuesses}/${totalGuesses})`;
+}
+
+
+        
+        var isWebAudioUnlocked = false;
+var isHTMLAudioUnlocked = false;
+
+function unlock() {
+    if (isWebAudioUnlocked  && isHTMLAudioUnlocked) return;
+
+    // Unlock WebAudio - create short silent buffer and play it
+    // This will allow us to play web audio at any time in the app
+    var buffer = myContext.createBuffer(1, 1, 22050); // 1/10th of a second of silence
+    var source = myContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(myContext.destination);
+    source.onended = function()
+    {
+        console.log("WebAudio unlocked!");
+        isWebAudioUnlocked = true;
+        if (isWebAudioUnlocked && isHTMLAudioUnlocked)
+        {
+            console.log("WebAudio unlocked and playable w/ mute toggled on!");
+            window.removeEventListener("mousedown", unlock);
+        }
+    };
+    source.start();
+
+    // Unlock HTML5 Audio - load a data url of short silence and play it
+    // This will allow us to play web audio when the mute toggle is on
+    var silenceDataURL = "data:audio/mp3;base64,//MkxAAHiAICWABElBeKPL/RANb2w+yiT1g/gTok//lP/W/l3h8QO/OCdCqCW2Cw//MkxAQHkAIWUAhEmAQXWUOFW2dxPu//9mr60ElY5sseQ+xxesmHKtZr7bsqqX2L//MkxAgFwAYiQAhEAC2hq22d3///9FTV6tA36JdgBJoOGgc+7qvqej5Zu7/7uI9l//MkxBQHAAYi8AhEAO193vt9KGOq+6qcT7hhfN5FTInmwk8RkqKImTM55pRQHQSq//MkxBsGkgoIAABHhTACIJLf99nVI///yuW1uBqWfEu7CgNPWGpUadBmZ////4sL//MkxCMHMAH9iABEmAsKioqKigsLCwtVTEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVV//MkxCkECAUYCAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+    var tag = document.createElement("audio");
+    tag.controls = false;
+    tag.preload = "auto";
+    tag.loop = false;
+    tag.src = silenceDataURL;
+    tag.onended = function()
+    {
+        console.log("HTMLAudio unlocked!");
+        isHTMLAudioUnlocked = true;
+        if (isWebAudioUnlocked && isHTMLAudioUnlocked)
+        {
+            console.log("WebAudio unlocked and playable w/ mute toggled on!");
+            window.removeEventListener("mousedown", unlock);
+        }
+    };
+    var p = tag.play();
+    if (p) p.then(function(){console.log("play success")}, function(reason){console.log("play failed", reason)});
+}
+
+//window.addEventListener("mousedown", unlock);
+
+  //]]></script>
+
+  <script>
+    // tell the embed parent frame the height of the content
+    if (window.parent && window.parent.parent){
+      window.parent.parent.postMessage(["resultsFrame", {
+        height: document.body.getBoundingClientRect().height,
+        slug: "8xfob5c0"
+      }], "*")
+    }
+
+    // always overwrite window.name, in case users try to set it manually
+    window.name = "result"
+  </script>
+
+
+</body>
+</html>
