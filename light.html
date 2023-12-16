@@ -210,8 +210,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setNoteButtonsEnabled(isNotePlayedOnce);
     updateReferenceButtons(); // Initial call to populate reference note buttons
     updateOctaveReferenceButtons(); // Populate octave-adjusted reference note buttons
-    window.addEventListener("mousedown", unmute);
-
+    //window.addEventListener("mousedown", unmute);
+    unmute(audioContext);
     const playRandomNote = function() {
         let newNote;
         notes = getNoteSet(includeSharps);
@@ -491,7 +491,6 @@ function playSound(frequency) {
         console.log("AudioContext not initialized");
         return;
     }
-
     const attackTime = 0.02; // Time in seconds to ramp up the sound
     const releaseTime = 0.05; // Time in seconds to ramp down the sound
     let duration = 1; // Total duration of the note
