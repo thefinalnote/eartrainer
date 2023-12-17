@@ -128,6 +128,13 @@
     margin:2px;
 }
 
+.reference-notes-container {
+    background-color: #e0f2f1; /* Very light green background */
+    padding: 10px;
+    padding-top:5px;
+    margin-top: 20px;
+    border-radius: 5px; /* Optional: for rounded corners */
+}
     /* EOS */
   </style>
 
@@ -164,11 +171,13 @@
     <button id="replayNote" disabled>&#8634; Replay Note</button>
     <button id="playNote">&#9654; Play Random Note</button>
     <div id="guessNotes"></div>
-    <p>Reference Notes (Play to hear &#127925;):</p>
-    <div id="referenceNotes">
-    </div>
-    <div class="octave-container">
-        <div id="lowerOctaveNotes"></div><div id="upperOctaveNotes"></div>
+    <div class="reference-notes-container">
+        <div>Reference Notes (Play to hear &#127925;):</div>
+        <div id="referenceNotes">
+        </div>
+        <div class="octave-container">
+            <div id="lowerOctaveNotes"></div><div id="upperOctaveNotes"></div>
+        </div>
     </div>
 </div>
 
