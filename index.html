@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
         do {
             newNote = notes[Math.floor(Math.random() * notes.length)];
         } while (newNote === lastNote);
+        lastNote = newNote;
         currentNote = newNote;
         frequency = includeExtendedOctaves ? getFrequencyWithOctaveVariation(currentNote):getFrequency(currentNote) ;
         playSound(frequency);
