@@ -36,7 +36,7 @@
     border-color: inherit;
 }
 
-#playNote, #replayNote {
+#playNote, #replayNote, #confuseMe {
     padding: 10px 20px;
     font-size: 20px;
     margin-bottom: 20px;
@@ -170,6 +170,8 @@
     <p id="feedback"></p>
     <button id="replayNote" disabled>&#8634; Replay Note</button>
     <button id="playNote">&#9654; Play Random Note</button>
+    <br />
+    <button id="confuseMe">&#8253; Confuse Me</button>
     <div id="guessNotes"></div>
     <div class="reference-notes-container">
         <div>Reference Notes (Play to hear &#127925;):</div>
@@ -200,6 +202,7 @@ let includeSharps = false;
 let includeMicrotones = false;
 let includeExtendedOctaves = true;
 let lastNote = null;
+let lastPlayedNote = null;
 
 if (window.AudioContext) {
     audioContext = new AudioContext();
@@ -246,6 +249,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (frequency) {
             playSound(frequency);
         }
+    });
+    
+     document.getElementById('confuseMe').addEventListener('click', function() {
+        playRandomNotesSequence();
     });
     
     document.getElementById('toggleSharps').addEventListener('click', function() {
@@ -496,6 +503,36 @@ function getFrequencyWithOctaveVariation(note) {
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 1);
 }*/
+        
+function playRandomNotesSequence() {
+    let notes = getNoteSet(includeSharps, includeMicrotones, includeExtendedOctaves);
+    let noteCount = 0;
+
+    // Function to play a random note
+    const playRandomSequenceNote = () => {
+        let randomNote;
+        do {
+            randomNote = notes[Math.floor(Math.random() * notes.length)];
+        } while (randomNote === lastPlayedNote); // Ensure the note is not the same as the last one
+        let frequency = includeExtendedOctaves ? getFrequencyWithOctaveVariation(randomNote):getFrequency(randomNote) ;
+        playSound(frequency);
+        noteCount++;
+        lastPlayedNote = randomNote; // Update the last played note
+    };
+
+    // Play the first note immediately
+    playRandomSequenceNote();
+
+    // Set interval for subsequent notes
+    let playInterval = setInterval(() => {
+        if (noteCount < 10) {
+            playRandomSequenceNote();
+        } else {
+            clearInterval(playInterval); // Stop after playing 10 notes
+        }
+    }, 300); // 500 milliseconds interval for each note
+}     
+
 function playSound(frequency) {
     if (!audioContext) {
         console.log("AudioContext not initialized");
